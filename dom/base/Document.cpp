@@ -90,6 +90,8 @@
 #include "mozilla/PermissionDelegateHandler.h"
 #include "mozilla/PermissionManager.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProcessIdleHints.h"
+#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/PreloadHashKey.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellForwards.h"
@@ -17247,6 +17249,16 @@ void Document::UpdateVisibilityState(DispatchVisibilityChange aDispatchEvent) {
   }
   // 2. Set document's visibility state to visibilityState.
   mVisibilityState = visibilityState;
+  // Patch 7a: hint the OS that this content process is going idle /
+  // becoming active. Best-effort and pref-gated; no observable web
+  // behaviour change.
+  if (StaticPrefs::browser_tabs_idle_hints_enabled()) {
+    if (visibilityState == dom::VisibilityState::Hidden) {
+      mozilla::ProcessIdleHints::MarkIdle();
+    } else {
+      mozilla::ProcessIdleHints::MarkActive();
+    }
+  }
   if (aDispatchEvent == DispatchVisibilityChange::Yes) {
     // 3. Fire an event named visibilitychange at document, with its bubbles
     // attribute initialized to true.

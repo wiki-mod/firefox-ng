@@ -18,6 +18,7 @@ EXPORTS.mozilla += [
     "PlatformMutex.h",
     "PlatformRWLock.h",
     "Printf.h",
+    "ProcessIdleHints.h",
     "SIMD.h",
     "Sprintf.h",
     "SSE.h",
@@ -47,6 +48,7 @@ SOURCES += [
     "MmapFaultHandler.cpp",
     "PerfStats.cpp",
     "Printf.cpp",
+    "ProcessIdleHints.cpp",
     "SIMD.cpp",
     "StackWalk.cpp",
 ]
