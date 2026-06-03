@@ -2084,6 +2084,16 @@
   value: true
   mirror: always
 
+# When true, content processes whose tab becomes hidden call
+# ProcessIdleHints::MarkIdle() so the OS can compress / page out
+# the process's anonymous memory. The inverse hint runs when the
+# tab becomes visible again. Best-effort, no functional change to
+# web content. Default off until measured.
+- name: browser.tabs.idle_hints.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether we should draw the tabs on top of the titlebar.
 #
 # no (0), yes (1), or default (2), which is true everywhere except Linux.
