@@ -2094,6 +2094,14 @@
   value: false
   mirror: always
 
+# When a tab is hovered and browser.tabs.idle_hints.enabled is true,
+# the content process is marked active immediately and re-marked idle
+# after this many milliseconds if no click happens.
+- name: browser.tabs.idle_hints.hover_warmup_ms
+  type: uint32_t
+  value: 10000
+  mirror: always
+
 # When true, frames with >= 100 uniform siblings and no explicit
 # content-visibility are treated as content-visibility:auto (Patch 6).
 # Default off pending performance measurement.

@@ -727,6 +727,7 @@
         this.container._handleTabSelect();
       } else if (this.linkedPanel) {
         this.linkedBrowser.unselectedTabHover(true);
+        this._maybeStartIdleHintWarmup();
       }
 
       // Prepare connection to host beforehand.
@@ -742,8 +743,43 @@
       this._hover = false;
       if (this.linkedPanel && !this.selected) {
         this.linkedBrowser.unselectedTabHover(false);
+        // Patch 7b: do NOT re-cool the idle hint immediately. The
+        // _idleHintReidleTimer started in _mouseenter (if any) will
+        // re-cool after the warmup window expires.
       }
       this.dispatchEvent(new CustomEvent("TabHoverEnd", { bubbles: true }));
+    }
+
+    /**
+     * Patch 7b: when the user hovers an unselected tab, warm up its
+     * content process (cancel any prior re-cool, send active, schedule
+     * a re-cool after the configured warmup window). Pref-gated by
+     * browser.tabs.idle_hints.enabled.
+     */
+    _maybeStartIdleHintWarmup() {
+      if (
+        !Services.prefs.getBoolPref(
+          "browser.tabs.idle_hints.enabled",
+          false
+        )
+      ) {
+        return;
+      }
+      if (this._idleHintReidleTimer) {
+        clearTimeout(this._idleHintReidleTimer);
+        this._idleHintReidleTimer = null;
+      }
+      this.linkedBrowser.unselectedTabIdleHint(true);
+      const ms = Services.prefs.getIntPref(
+        "browser.tabs.idle_hints.hover_warmup_ms",
+        10000
+      );
+      this._idleHintReidleTimer = setTimeout(() => {
+        this._idleHintReidleTimer = null;
+        if (!this.selected && this.linkedBrowser) {
+          this.linkedBrowser.unselectedTabIdleHint(false);
+        }
+      }, ms);
     }
 
     resumeDelayedMedia() {

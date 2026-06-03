@@ -32,6 +32,7 @@
 #include "mozilla/KeySystemConfig.h"
 #include "mozilla/PerfStats.h"
 #include "mozilla/Preferences.h"
+#include "mozilla/ProcessIdleHints.h"
 #include "mozilla/ProcInfo.h"
 #include "mozilla/ProfilerLabels.h"
 #include "mozilla/ProfilerMarkers.h"
@@ -2835,6 +2836,17 @@ void ChromeUtils::NotifyDevToolsOpened(GlobalObject& aGlobal) {
 void ChromeUtils::NotifyDevToolsClosed(GlobalObject& aGlobal) {
   MOZ_ASSERT(sDevToolsOpenedCount >= 1);
   sDevToolsOpenedCount--;
+}
+
+/* static */
+void ChromeUtils::MarkProcessIdleHint(GlobalObject& aGlobal, bool aActive) {
+  // Best-effort, thread-safe, no-op on unsupported platforms. See
+  // mozglue/misc/ProcessIdleHints.cpp.
+  if (aActive) {
+    mozilla::ProcessIdleHints::MarkActive();
+  } else {
+    mozilla::ProcessIdleHints::MarkIdle();
+  }
 }
 
 /* static */
