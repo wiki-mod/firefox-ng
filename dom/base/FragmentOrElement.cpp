@@ -2030,6 +2030,106 @@ static bool ContainsMarkup(const nsAString& aStr) {
   return false;
 }
 
+namespace {
+
+// Incremental innerHTML helper: parse the new HTML into a temporary
+// DocumentFragment, then keep the longest common child prefix that already
+// matches the target. Only the divergent tail is removed/added. This avoids
+// quadratic behavior when scripts repeatedly set innerHTML to an
+// "old content + small delta" string (typical for streaming markdown UIs
+// such as ChatGPT, Slack, Discord, ...).
+//
+// Returns true if the incremental path completed and the caller should
+// return (success or reported error). Returns false on any bail-out
+// condition; the caller must then run the legacy code path. On bail, no
+// mutation has been applied to the target.
+static bool TrySetInnerHTMLIncremental(FragmentOrElement* aTarget,
+                                       FragmentOrElement* aParseContext,
+                                       const nsAString& aInnerHTML,
+                                       Document* aDoc,
+                                       ErrorResult& aError) {
+  // Only HTML documents in this first cut. XML and weird parser-insertion
+  // modes keep the legacy path.
+  if (!aDoc->IsHTMLDocument()) {
+    return false;
+  }
+  if (aTarget->HasWeirdParserInsertionMode()) {
+    return false;
+  }
+
+  // Parse the new HTML into a temporary fragment so we can diff before we
+  // touch the live tree. Same parser as the legacy code; only the
+  // destination differs.
+  RefPtr<DocumentFragment> newFrag =
+      new (aDoc->NodeInfoManager()) DocumentFragment(aDoc->NodeInfoManager());
+  {
+    nsAutoScriptLoaderDisabler sldParse(aDoc);
+    nsresult rv = nsContentUtils::ParseFragmentHTML(
+        aInnerHTML, newFrag, aParseContext->NodeInfo()->NameAtom(),
+        aParseContext->GetNameSpaceID(),
+        aDoc->GetCompatibilityMode() == eCompatibility_NavQuirks, true);
+    if (NS_FAILED(rv)) {
+      aError = rv;
+      return true;  // Parse error reported; identical outcome to legacy path.
+    }
+  }
+
+  // Longest common prefix between existing target children and the freshly
+  // parsed children. The common case for streaming markdown UIs is
+  // "previous text + one more token", so this prefix is almost everything.
+  nsCOMPtr<nsIContent> oldChild = aTarget->GetFirstChild();
+  nsCOMPtr<nsIContent> newChild = newFrag->GetFirstChild();
+  uint32_t shared = 0;
+  while (oldChild && newChild && oldChild->IsEqualNode(newChild)) {
+    oldChild = oldChild->GetNextSibling();
+    newChild = newChild->GetNextSibling();
+    ++shared;
+  }
+
+  // If nothing matches and the target wasn't empty, the legacy bulk
+  // remove/append is cheaper (one ContentAppended notification instead of N).
+  if (shared == 0 && aTarget->GetFirstChild()) {
+    return false;
+  }
+
+  // Apply diff.
+  mozAutoDocUpdate updateBatch(aDoc, true);
+  nsAutoScriptLoaderDisabler sld(aDoc);
+  nsAutoMutationBatch mb(aTarget, true, false);
+
+  if (oldChild) {
+    aTarget->NotifyDevToolsOfRemovalsOfChildren();
+  }
+  while (oldChild) {
+    nsCOMPtr<nsIContent> next = oldChild->GetNextSibling();
+    aTarget->RemoveChildNode(oldChild, true);
+    oldChild = next;
+  }
+  mb.RemovalDone();
+
+  if (newChild) {
+    nsAutoScriptBlockerSuppressNodeRemoved blocker;
+    nsCOMPtr<nsIContent> firstAppended = newChild;
+    while (newChild) {
+      nsCOMPtr<nsIContent> next = newChild->GetNextSibling();
+      newFrag->RemoveChildNode(newChild, true);
+      ErrorResult moveErr;
+      aTarget->AppendChildTo(newChild, true, moveErr);
+      if (NS_WARN_IF(moveErr.Failed())) {
+        aError = std::move(moveErr);
+        mb.NodesAdded();
+        return true;
+      }
+      newChild = next;
+    }
+    MutationObservers::NotifyContentAppended(aTarget, firstAppended, {});
+  }
+  mb.NodesAdded();
+  return true;
+}
+
+}  // namespace
+
 void FragmentOrElement::SetInnerHTMLInternal(const nsAString& aInnerHTML,
                                              ErrorResult& aError) {
   // Keep "this" alive should be guaranteed by the caller, and also the content
@@ -2058,6 +2158,20 @@ void FragmentOrElement::SetInnerHTMLInternal(const nsAString& aInnerHTML,
 
   const RefPtr<Document> doc = target->OwnerDoc();
 
+  FragmentOrElement* parseContext = this;
+  if (ShadowRoot* shadowRoot = ShadowRoot::FromNode(this)) {
+    // Fix up the context to be the host of the ShadowRoot.  See
+    // https://w3c.github.io/DOM-Parsing/#dom-innerhtml-innerhtml setter step 1.
+    parseContext = shadowRoot->GetHost();
+  }
+
+  // Try the incremental path first. On success the target is updated; on
+  // bail-out we fall through to the legacy bulk-replace code below.
+  if (TrySetInnerHTMLIncremental(target, parseContext, aInnerHTML, doc,
+                                 aError)) {
+    return;
+  }
+
   target->NotifyDevToolsOfRemovalsOfChildren();
 
   // Needed when innerHTML is used in combination with contenteditable
@@ -2069,13 +2183,6 @@ void FragmentOrElement::SetInnerHTMLInternal(const nsAString& aInnerHTML,
   mb.RemovalDone();
 
   nsAutoScriptLoaderDisabler sld(doc);
-
-  FragmentOrElement* parseContext = this;
-  if (ShadowRoot* shadowRoot = ShadowRoot::FromNode(this)) {
-    // Fix up the context to be the host of the ShadowRoot.  See
-    // https://w3c.github.io/DOM-Parsing/#dom-innerhtml-innerhtml setter step 1.
-    parseContext = shadowRoot->GetHost();
-  }
 
   if (doc->IsHTMLDocument()) {
     doc->SuspendDOMNotifications();
