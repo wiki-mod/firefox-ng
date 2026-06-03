@@ -7707,6 +7707,55 @@ bool nsIFrame::IsContentRelevant() const {
   return relevancy.isSome() && !relevancy->isEmpty();
 }
 
+// Patch 6 helper: auto-virtualization heuristic. Returns true if aFrame is
+// part of a long, uniform child list whose siblings share the same content
+// tag - the typical "feed / chat / log" shape. Such frames are treated as
+// if they had content-visibility:auto, so they skip layout while off-screen
+// even when the page itself never opted in.
+//
+// No pref gate in this WIP version; layout.auto_virtualization.enabled
+// lands in a follow-up commit before submission to Mozilla.
+static bool ShouldAutoVirtualize(const nsIFrame* aFrame) {
+  // Don't override an explicit author choice.
+  auto cv = aFrame->StyleDisplay()->ContentVisibility(*aFrame);
+  if (cv != StyleContentVisibility::Visible) {
+    return false;
+  }
+
+  const nsIFrame* parent = aFrame->GetInFlowParent();
+  if (!parent) {
+    return false;
+  }
+
+  // Walk siblings; early-exit at threshold so this stays O(threshold).
+  constexpr uint32_t kMinChildren = 100;
+  uint32_t count = 0;
+  const nsIFrame* first = parent->PrincipalChildList().FirstChild();
+  const nsIFrame* last = nullptr;
+  for (const nsIFrame* c = first; c; c = c->GetNextSibling()) {
+    ++count;
+    last = c;
+    if (count >= kMinChildren) {
+      break;
+    }
+  }
+  if (count < kMinChildren) {
+    return false;
+  }
+
+  // Same-tag heuristic: first and last sibling must be elements with the
+  // same content tag. Cheap proxy for "list of similar items".
+  if (!first || !last) {
+    return false;
+  }
+  nsIContent* firstC = first->GetContent();
+  nsIContent* lastC = last->GetContent();
+  if (!firstC || !lastC || !firstC->IsElement() || !lastC->IsElement()) {
+    return false;
+  }
+  return firstC->NodeInfo()->NameAtom() == lastC->NodeInfo()->NameAtom();
+}
+
 bool nsIFrame::HidesContent(
     const EnumSet<IncludeContentVisibility>& aInclude) const {
   auto effectiveContentVisibility = StyleDisplay()->ContentVisibility(*this);
@@ -7715,9 +7764,15 @@ bool nsIFrame::HidesContent(
     return true;
   }
 
-  if (aInclude.contains(IncludeContentVisibility::Auto) &&
-      effectiveContentVisibility == StyleContentVisibility::Auto) {
-    return !IsContentRelevant();
+  if (aInclude.contains(IncludeContentVisibility::Auto)) {
+    if (effectiveContentVisibility == StyleContentVisibility::Auto) {
+      return !IsContentRelevant();
+    }
+    // Patch 6: auto-virtualization heuristic treats long uniform lists as
+    // if they had content-visibility:auto - hidden while off-screen.
+    if (ShouldAutoVirtualize(this)) {
+      return !IsContentRelevant();
+    }
   }
 
   return false;
