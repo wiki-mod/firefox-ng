@@ -1065,6 +1065,23 @@ export class MozBrowser extends MozElements.MozElementMixin(XULFrameElement) {
     );
   }
 
+  /**
+   * Patch 7b: idle-hint warmup channel. Always sends (no
+   * shouldHandleUnselectedTabHover gate) so the content process gets the
+   * MarkActive / MarkIdle signal even when no in-page listener has
+   * opted into the legacy unselectedTabHover pipeline. Pref-gating lives
+   * at the call site (tab.js) so this method is dirt-cheap when the
+   * feature is off (no callers).
+   */
+  unselectedTabIdleHint(active) {
+    this.sendMessageToActor(
+      "Browser:UnselectedTabIdleHint",
+      { active },
+      "UnselectedTabHover",
+      "roots"
+    );
+  }
+
   didStartLoadSinceLastUserTyping() {
     return (
       !this.isNavigating &&

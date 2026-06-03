@@ -2094,6 +2094,14 @@
   value: false
   mirror: always
 
+# When a tab is hovered and browser.tabs.idle_hints.enabled is true,
+# the content process is marked active immediately and re-marked idle
+# after this many milliseconds if no click happens.
+- name: browser.tabs.idle_hints.hover_warmup_ms
+  type: uint32_t
+  value: 10000
+  mirror: always
+
 # Whether we should draw the tabs on top of the titlebar.
 #
 # no (0), yes (1), or default (2), which is true everywhere except Linux.

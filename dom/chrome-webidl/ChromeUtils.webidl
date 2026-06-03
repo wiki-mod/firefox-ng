@@ -174,6 +174,14 @@ namespace ChromeUtils {
   undefined notifyDevToolsOpened();
   undefined notifyDevToolsClosed();
 
+  /**
+   * Mark this process as either active or idle for the OS-level memory
+   * compression hint pipeline. Wired up to the tab-hover warmup logic in
+   * browser/components/tabbrowser/content/tab.js. Pref-gated by
+   * browser.tabs.idle_hints.enabled.
+   */
+  undefined markProcessIdleHint(boolean active);
+
 
   /**
    * Return the keys in a weak map.  This operation is

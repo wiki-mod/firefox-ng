@@ -71,6 +71,8 @@ class ChromeUtils {
   static void NotifyDevToolsOpened(GlobalObject& aGlobal);
   static void NotifyDevToolsClosed(GlobalObject& aGlobal);
 
+  static void MarkProcessIdleHint(GlobalObject& aGlobal, bool aActive);
+
   static void NondeterministicGetWeakMapKeys(
       GlobalObject& aGlobal, JS::Handle<JS::Value> aMap,
       JS::MutableHandle<JS::Value> aRetval, ErrorResult& aRv);
