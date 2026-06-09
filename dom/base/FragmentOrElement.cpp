@@ -2030,8 +2030,6 @@ static bool ContainsMarkup(const nsAString& aStr) {
   return false;
 }
 
-namespace {
-
 // Incremental innerHTML helper: parse the new HTML into a temporary
 // DocumentFragment, then keep the longest common child prefix that already
 // matches the target. Only the divergent tail is removed/added. This avoids
@@ -2043,11 +2041,13 @@ namespace {
 // return (success or reported error). Returns false on any bail-out
 // condition; the caller must then run the legacy code path. On bail, no
 // mutation has been applied to the target.
-static bool TrySetInnerHTMLIncremental(FragmentOrElement* aTarget,
-                                       FragmentOrElement* aParseContext,
-                                       const nsAString& aInnerHTML,
-                                       Document* aDoc,
-                                       ErrorResult& aError) {
+/* static */
+bool FragmentOrElement::TrySetInnerHTMLIncremental(
+    FragmentOrElement* aTarget,
+    FragmentOrElement* aParseContext,
+    const nsAString& aInnerHTML,
+    Document* aDoc,
+    ErrorResult& aError) {
   // Only HTML documents in this first cut. XML and weird parser-insertion
   // modes keep the legacy path.
   if (!aDoc->IsHTMLDocument()) {
@@ -2127,8 +2127,6 @@ static bool TrySetInnerHTMLIncremental(FragmentOrElement* aTarget,
   mb.NodesAdded();
   return true;
 }
-
-}  // namespace
 
 void FragmentOrElement::SetInnerHTMLInternal(const nsAString& aInnerHTML,
                                              ErrorResult& aError) {
