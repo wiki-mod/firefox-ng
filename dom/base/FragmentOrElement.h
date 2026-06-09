@@ -407,6 +407,14 @@ class FragmentOrElement : public nsIContent {
   void GetMarkup(bool aIncludeSelf, nsAString& aMarkup);
   void SetInnerHTMLInternal(const nsAString& aInnerHTML, ErrorResult& aError);
 
+  // Patch 1: incremental innerHTML helper. Static member (not free
+  // function) so it can call protected nsINode/FragmentOrElement methods.
+  static bool TrySetInnerHTMLIncremental(FragmentOrElement* aTarget,
+                                         FragmentOrElement* aParseContext,
+                                         const nsAString& aInnerHTML,
+                                         Document* aDoc,
+                                         ErrorResult& aError);
+
   // Override from nsINode
   nsIContent::nsContentSlots* CreateSlots() override;
 
