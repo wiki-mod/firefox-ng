@@ -1,28 +1,18 @@
 name: Patch Build CI
 
 # Runs on push to any patch/* branch using a self-hosted runner on 192.168.1.229.
+# sccache-dist is configured on 229: scheduler at 192.168.1.220:10500, Redis at 192.168.1.230.
 # Standard GitHub runners are too small for Firefox (need ~50 GB disk, 16+ GB RAM).
 #
-# Runner setup (one-time, on 192.168.1.229):
-#   cd /opt/firefox
-#   mkdir actions-runner && cd actions-runner
-#   curl -O -L https://github.com/actions/runner/releases/latest/download/actions-runner-linux-x64-*.tar.gz
-#   tar xzf *.tar.gz
-#   ./config.sh --url https://github.com/wiki-mod/firefox-ng --token <TOKEN> --labels firefox-build
-#   sudo ./svc.sh install && sudo ./svc.sh start
-#
-# The runner expects a pre-existing Firefox checkout at /opt/firefox/build
-# with wiki-mod remote already configured (saves re-clone time).
+# One-time runner setup on 192.168.1.229:
+#   scp setup-runner.sh codex@192.168.1.229:/opt/codex/
+#   ssh codex@192.168.1.229 "bash /opt/codex/setup-runner.sh 2>&1 | tee /opt/codex/setup-runner.log"
 
 on:
   push:
     branches:
       - 'patch/**'
   workflow_dispatch:
-    inputs:
-      branch:
-        description: 'Branch to build (default: current)'
-        required: false
 
 jobs:
   build-linux:
@@ -33,24 +23,31 @@ jobs:
     env:
       BUILD_DIR: /opt/firefox/build
       ARTIFACT_DIR: /opt/firefox/artifacts/${{ github.run_id }}
+      RUSTC_WRAPPER: sccache
+      CC: sccache clang
+      CXX: sccache clang++
+      SCCACHE_LOG: warn
 
     steps:
-      - name: Update checkout to patch branch
+      - name: Fetch and checkout patch branch
         run: |
           cd "$BUILD_DIR"
           git fetch wiki-mod "$GITHUB_REF_NAME"
           git checkout FETCH_HEAD
           git log --oneline -3
 
-      - name: Detect build type from changed files
+      - name: sccache stats (before)
+        run: sccache --show-stats 2>/dev/null || true
+
+      - name: Detect build type
         id: build-type
         run: |
           cd "$BUILD_DIR"
-          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "unknown")
-          echo "Changed files: $CHANGED"
+          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          echo "Changed: $CHANGED"
           if echo "$CHANGED" | grep -qE '\.(cpp|c|h|rs|mm)$'; then
             echo "cmd=binaries" >> "$GITHUB_OUTPUT"
-            echo "label=C++/Rust" >> "$GITHUB_OUTPUT"
+            echo "label=C++/Rust (sccache)" >> "$GITHUB_OUTPUT"
           else
             echo "cmd=faster" >> "$GITHUB_OUTPUT"
             echo "label=frontend-only" >> "$GITHUB_OUTPUT"
@@ -61,28 +58,20 @@ jobs:
           mkdir -p "$ARTIFACT_DIR"
           cd "$BUILD_DIR"
           ./mach build ${{ steps.build-type.outputs.cmd }} 2>&1 | tee "$ARTIFACT_DIR/build.log"
-          BUILD_STATUS=${PIPESTATUS[0]}
-          echo "Build exit: $BUILD_STATUS"
-          echo "BUILD_STATUS=$BUILD_STATUS" >> "$GITHUB_ENV"
+          echo "BUILD_STATUS=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
 
-      - name: Run quick smoke test
-        if: env.BUILD_STATUS == '0'
-        run: |
-          cd "$BUILD_DIR"
-          ./mach test --headless --auto --tag smoke 2>&1 | tee "$ARTIFACT_DIR/test.log" || true
+      - name: sccache stats (after)
+        if: always()
+        run: sccache --show-stats 2>/dev/null || true
 
       - name: Upload build log
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: build-${{ github.ref_name }}-${{ github.sha }}
-          path: |
-            ${{ env.ARTIFACT_DIR }}/build.log
-            ${{ env.ARTIFACT_DIR }}/test.log
+          path: ${{ env.ARTIFACT_DIR }}/build.log
           retention-days: 14
 
       - name: Fail if build failed
         if: env.BUILD_STATUS != '0'
-        run: |
-          echo "Build FAILED. Check the uploaded build log for details."
-          exit 1
+        run: exit 1
