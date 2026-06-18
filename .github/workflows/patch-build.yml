@@ -11,7 +11,7 @@ name: Patch Build CI
 on:
   push:
     branches:
-      - 'patch/**'
+      - 'build/**'
   workflow_dispatch:
 
 jobs:
