@@ -7712,10 +7712,10 @@ bool nsIFrame::IsContentRelevant() const {
 // tag - the typical "feed / chat / log" shape. Such frames are treated as
 // if they had content-visibility:auto, so they skip layout while off-screen
 // even when the page itself never opted in.
-//
-// No pref gate in this WIP version; layout.auto_virtualization.enabled
-// lands in a follow-up commit before submission to Mozilla.
 static bool ShouldAutoVirtualize(const nsIFrame* aFrame) {
+  if (!StaticPrefs::layout_auto_virtualization_enabled()) {
+    return false;
+  }
   // Don't override an explicit author choice.
   auto cv = aFrame->StyleDisplay()->ContentVisibility(*aFrame);
   if (cv != StyleContentVisibility::Visible) {
