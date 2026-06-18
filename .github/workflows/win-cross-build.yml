@@ -21,7 +21,8 @@ jobs:
       BUILD_DIR: /opt/codex/firefox/dev
       MOZCONFIG: /opt/codex/firefox/dev/infra/mozconfig.win-cross
       ARTIFACT_DIR: /opt/codex/firefox/artifacts/win/${{ github.run_id }}
-      RUSTC_WRAPPER: /opt/codex/.cargo/bin/sccache
+      RUSTC_WRAPPER: /opt/codex/firefox/dev/infra/ccwrap
+      SCCACHE_REDIS: redis://192.168.1.230:6379
 
     steps:
       - name: Fetch and checkout build branch

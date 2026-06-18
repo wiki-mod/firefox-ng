@@ -1,0 +1,2 @@
+#!/bin/sh
+exec /opt/codex/.cargo/bin/sccache "$@"
