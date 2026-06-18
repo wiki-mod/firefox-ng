@@ -116,6 +116,10 @@
     disconnectedCallback() {
       this.#updateOnTabUngrouped();
       this.#updateOnTabUnsplit();
+      if (this._idleHintReidleTimer) {
+        clearTimeout(this._idleHintReidleTimer);
+        this._idleHintReidleTimer = null;
+      }
     }
 
     initialize() {
