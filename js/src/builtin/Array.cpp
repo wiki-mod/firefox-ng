@@ -18,6 +18,8 @@
 #include "jsfriendapi.h"
 #include "jstypes.h"
 
+#include "js/Prefs.h"
+
 #include "builtin/Number.h"
 #include "builtin/SelfHostingDefines.h"
 #include "ds/Sort.h"
@@ -4736,6 +4738,35 @@ static bool array_lastIndexOf(JSContext* cx, unsigned argc, Value* vp) {
   return true;
 }
 
+// Py: per-thread HashSet cache for Array.prototype.includes on large tenured
+// dense arrays. Only the bitwise-comparable element path (atoms, ints, etc.)
+// is cached. The cache tracks a single array; when the array grows between
+// calls, new elements are appended lazily. Any backing-store reallocation
+// (elements pointer change) rebuilds the cache from scratch.
+// Known limitation: in-place element mutation is not detected; the pref is
+// off by default to guard against this.
+namespace {
+struct ArrayIncludesU64Hasher {
+  using Lookup = uint64_t;
+  static HashNumber hash(uint64_t v) { return HashNumber(v ^ (v >> 32)); }
+  static bool match(uint64_t a, uint64_t b) { return a == b; }
+};
+
+struct ArrayIncludesCache {
+  const Value* elements = nullptr;
+  uint32_t cachedLength = 0;
+  HashSet<uint64_t, ArrayIncludesU64Hasher, SystemAllocPolicy> set;
+
+  void clear() {
+    elements = nullptr;
+    cachedLength = 0;
+    set.clear();
+  }
+};
+}  // namespace
+
+static thread_local ArrayIncludesCache gArrayIncludesCache;
+
 // ES2026 draft rev a562082b031d89d00ee667181ce8a6158656bd4b
 // 23.1.3.16 Array.prototype.includes ( searchElement [ , fromIndex ] )
 static bool array_includes(JSContext* cx, unsigned argc, Value* vp) {
@@ -4799,6 +4830,56 @@ static bool array_includes(JSContext* cx, unsigned argc, Value* vp) {
     // different path if searching for |undefined|.
     if (CanUseBitwiseCompareForStrictlyEqual(searchElement) &&
         !searchElement.isUndefined() && length > start) {
+      // Py: for large tenured arrays, use a per-thread HashSet cache so that
+      // repeated includes() calls on the same (growing) array are O(1).
+      static constexpr uint32_t kCacheThreshold = 64;
+      if (JS::Prefs::array_includes_cache() &&
+          start == 0 && length >= kCacheThreshold && nobj->isTenured()) {
+        ArrayIncludesCache& cache = gArrayIncludesCache;
+        bool cacheOk = false;
+        if (cache.elements == elements) {
+          if (cache.cachedLength < length) {
+            bool oom = false;
+            for (uint32_t i = cache.cachedLength; i < length; i++) {
+              if (!cache.set.putNew(elements[i].asRawBits())) {
+                oom = true;
+                break;
+              }
+            }
+            if (!oom) {
+              cache.cachedLength = length;
+              cacheOk = true;
+            } else {
+              cache.clear();
+            }
+          } else if (cache.cachedLength == length) {
+            cacheOk = true;
+          } else {
+            // Array shrunk (pop/splice): cache may have stale entries, rebuild.
+            cache.clear();
+          }
+        } else {
+          cache.clear();
+          cache.elements = elements;
+          bool oom = false;
+          for (uint32_t i = 0; i < length; i++) {
+            if (!cache.set.putNew(elements[i].asRawBits())) {
+              oom = true;
+              break;
+            }
+          }
+          if (!oom) {
+            cache.cachedLength = length;
+            cacheOk = true;
+          } else {
+            cache.clear();
+          }
+        }
+        if (cacheOk) {
+          args.rval().setBoolean(cache.set.has(searchElement.asRawBits()));
+          return true;
+        }
+      }
       if (SIMD::memchr64(reinterpret_cast<const uint64_t*>(elements) + start,
                          searchElement.asRawBits(), length - start)) {
         args.rval().setBoolean(true);
