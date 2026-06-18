@@ -19,6 +19,3 @@ mk_add_options AUTOCLOBBER=1
 
 export CC_x86_64_pc_windows_msvc=/opt/codex/.mozbuild/clang/bin/clang-cl
 export CXX_x86_64_pc_windows_msvc=/opt/codex/.mozbuild/clang/bin/clang-cl
-export ML=/opt/codex/.mozbuild/clang/bin/llvm-ml64
-export ML64=/opt/codex/.mozbuild/clang/bin/llvm-ml64
-ac_add_options --disable-asm
