@@ -146,6 +146,10 @@ if CONFIG["CC_TYPE"] in ("clang", "clang-cl"):
     gyp_vars["cc_is_clang"] = 1
 if CONFIG["GCC_USE_GNU_LD"]:
     gyp_vars["cc_use_gnu_ld"] = 1
+elif CONFIG["OS_TARGET"] == "WINNT" and CONFIG["HOST_OS_ARCH"] != "WINNT":
+    # Cross-compiling for Windows from Linux: no MASM assembler available,
+    # force NSS to use the pure-C crypto path.
+    gyp_vars["cc_use_gnu_ld"] = 1
 
 GYP_DIRS += ["nss"]
 GYP_DIRS["nss"].input = "nss/nss.gyp"
