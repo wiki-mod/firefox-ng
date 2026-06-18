@@ -1822,11 +1822,13 @@ impl Build {
             cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
         }
 
-        if compiler.supports_path_delimiter() && !is_assembler_msvc {
+        if compiler.supports_path_delimiter() && !is_assembler_msvc && cfg!(target_os = "macos") {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
             // `-Wslash-u-filename` warning.
+            // On Linux, clang-cl does not support `--` as a path delimiter and
+            // treats it as a linker input, breaking single-file compilation.
             cmd.arg("--");
         }
         cmd.arg(&obj.src);
@@ -1860,11 +1862,12 @@ impl Build {
             .find_map(AsmFileExt::from_path)
             .is_some();
 
-        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
+        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm && cfg!(target_os = "macos") {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
             // `-Wslash-u-filename` warning.
+            // On Linux, clang-cl does not support `--` as a path delimiter.
             cmd.arg("--");
         }
 
