@@ -23,6 +23,7 @@ jobs:
       ARTIFACT_DIR: /opt/codex/firefox/artifacts/win/${{ github.run_id }}
       RUSTC_WRAPPER: /opt/codex/firefox/dev/infra/ccwrap
       SCCACHE_REDIS: redis://192.168.1.230:6379
+      SCCACHE_DIST_SERVER: http://192.168.1.220:10500
 
     steps:
       - name: Fetch and checkout build branch
