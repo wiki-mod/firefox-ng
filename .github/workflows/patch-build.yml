@@ -32,7 +32,8 @@ jobs:
       - name: Fetch and checkout patch branch
         run: |
           cd "$BUILD_DIR"
-          git fetch wiki-mod "$GITHUB_REF_NAME"
+          git config remote.wiki-mod.promisor true
+          git fetch --filter=blob:none wiki-mod "$GITHUB_REF_NAME"
           git checkout FETCH_HEAD
           git log --oneline -3
 
