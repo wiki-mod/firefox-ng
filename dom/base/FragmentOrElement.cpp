@@ -2097,8 +2097,13 @@ bool FragmentOrElement::TrySetInnerHTMLIncremental(
   nsAutoScriptLoaderDisabler sld(aDoc);
   nsAutoMutationBatch mb(aTarget, true, false);
 
-  if (oldChild) {
-    aTarget->NotifyDevToolsOfRemovalsOfChildren();
+  if (oldChild &&
+      MOZ_UNLIKELY(
+          aTarget->MaybeNeedsToNotifyDevToolsOfNodeRemovalsInOwnerDoc())) {
+    for (nsCOMPtr<nsIContent> c = oldChild;
+         c && c->GetParentNode() == aTarget; c = c->GetNextSibling()) {
+      nsContentUtils::NotifyDevToolsOfNodeRemoval(*c);
+    }
   }
   while (oldChild) {
     nsCOMPtr<nsIContent> next = oldChild->GetNextSibling();
@@ -2114,14 +2119,18 @@ bool FragmentOrElement::TrySetInnerHTMLIncremental(
       nsCOMPtr<nsIContent> next = newChild->GetNextSibling();
       newFrag->RemoveChildNode(newChild, true);
       ErrorResult moveErr;
-      aTarget->AppendChildTo(newChild, true, moveErr);
+      aTarget->AppendChildTo(newChild, false, moveErr);
       if (NS_WARN_IF(moveErr.Failed())) {
         aError = std::move(moveErr);
+        mb.SetPrevSibling(firstAppended->GetPreviousSibling());
         mb.NodesAdded();
         return true;
       }
       newChild = next;
     }
+    // Tell the mutation batch where the new tail starts so MutationObserver
+    // addedNodes does not include the unchanged shared prefix.
+    mb.SetPrevSibling(firstAppended->GetPreviousSibling());
     MutationObservers::NotifyContentAppended(aTarget, firstAppended, {});
   }
   mb.NodesAdded();
