@@ -2,7 +2,8 @@ name: Patch Build CI
 
 # Runs on push to any build/** branch using a self-hosted runner on 192.168.1.229.
 # sccache-dist: scheduler 192.168.1.220:10500, Redis 192.168.1.230.
-# Build dir: /opt/codex/firefox/dev (symlink: /opt/firefox/dev)
+# Build dir: /opt/codex/firefox/dev  Obj dir: /opt/codex/firefox/builds/dev-obj
+# mozconfig: /opt/codex/firefox/mozconfig.dev (symlinked as dev/.mozconfig)
 
 on:
   push:
@@ -20,9 +21,6 @@ jobs:
       BUILD_DIR: /opt/codex/firefox/dev
       ARTIFACT_DIR: /opt/codex/firefox/artifacts/${{ github.run_id }}
       RUSTC_WRAPPER: sccache
-      CC: sccache clang
-      CXX: sccache clang++
-      SCCACHE_LOG: warn
 
     steps:
       - name: Fetch and checkout build branch
@@ -36,25 +34,11 @@ jobs:
       - name: sccache stats (before)
         run: sccache --show-stats 2>/dev/null || true
 
-      - name: Detect build type
-        id: build-type
-        run: |
-          cd "$BUILD_DIR"
-          CHANGED=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
-          echo "Changed: $CHANGED"
-          if echo "$CHANGED" | grep -qE '\.(cpp|c|h|rs|mm)$'; then
-            echo "cmd=binaries" >> "$GITHUB_OUTPUT"
-            echo "label=C++/Rust (sccache)" >> "$GITHUB_OUTPUT"
-          else
-            echo "cmd=faster" >> "$GITHUB_OUTPUT"
-            echo "label=frontend-only" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Build Firefox (${{ steps.build-type.outputs.label }})
+      - name: Build Firefox (binaries)
         run: |
           mkdir -p "$ARTIFACT_DIR"
           cd "$BUILD_DIR"
-          ./mach build ${{ steps.build-type.outputs.cmd }} 2>&1 | tee "$ARTIFACT_DIR/build.log"
+          ./mach build binaries 2>&1 | tee "$ARTIFACT_DIR/build.log"
           echo "BUILD_STATUS=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
 
       - name: sccache stats (after)
