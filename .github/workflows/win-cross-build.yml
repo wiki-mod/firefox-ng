@@ -28,14 +28,24 @@ jobs:
       - name: Fetch and checkout build branch
         run: |
           cd "$BUILD_DIR"
-          git config remote.wiki-mod.promisor true
-          git fetch --filter=blob:none wiki-mod "$GITHUB_REF_NAME"
-          git checkout FETCH_HEAD
+          git fetch wiki-mod "$GITHUB_REF_NAME"
+          git checkout -f FETCH_HEAD
           git log --oneline -3
 
       - name: Sync source to sccache-dist worker (240)
         run: |
           rsync -a --delete --exclude='.git' "$BUILD_DIR/" "${{ secrets.SCCACHE_WORKER }}:$BUILD_DIR/"
+
+      - name: Clean stale Cargo caches (cc-rs + whatsys)
+        run: |
+          OBJ=/opt/codex/firefox/builds/win-cross-obj
+          for pkg in cc whatsys; do
+            find "$OBJ/release/build/" -maxdepth 1 -name "${pkg}-*" -exec rm -rf {} + 2>/dev/null || true
+            find "$OBJ/release/.fingerprint/" -maxdepth 1 -name "${pkg}-*" -exec rm -rf {} + 2>/dev/null || true
+          done
+          find "$OBJ/release/deps/" -maxdepth 1 -name 'libcc-*' -delete 2>/dev/null || true
+          grep -q 'cfg!(target_os = "macos")' "$BUILD_DIR/third_party/rust/cc/src/lib.rs" \
+            && echo "cc-rs patch: present" || echo "cc-rs patch: MISSING – source checkout may be stale"
 
       - name: sccache stats (before)
         run: /opt/codex/.cargo/bin/sccache --show-stats 2>/dev/null || true
