@@ -9238,6 +9238,16 @@
 #       mirror them into SpiderMonkey.
 #---------------------------------------------------------------------------
 
+# Py: Array.prototype.includes HashSet cache for large dense arrays.
+# When enabled, repeated includes() calls on the same large tenured array use
+# a per-thread HashSet for O(1) lookup instead of O(n) linear scan.
+# Targets the ChatGPT getBranchFromLeaf O(n^2) pattern. Default false.
+- name: javascript.options.array_includes_cache
+  type: bool
+  value: false
+  mirror: always
+  set_spidermonkey_pref: always
+
 # The JavaScript JIT compilers. These are read once on startup so a browser may
 # need to be restarted if toggling them. In general each subsequent JIT depends
 # on the ones before it being enabled.
