@@ -1,12 +1,8 @@
 name: Patch Build CI
 
-# Runs on push to any patch/* branch using a self-hosted runner on 192.168.1.229.
-# sccache-dist is configured on 229: scheduler at 192.168.1.220:10500, Redis at 192.168.1.230.
-# Standard GitHub runners are too small for Firefox (need ~50 GB disk, 16+ GB RAM).
-#
-# One-time runner setup on 192.168.1.229:
-#   scp setup-runner.sh codex@192.168.1.229:/opt/codex/
-#   ssh codex@192.168.1.229 "bash /opt/codex/setup-runner.sh 2>&1 | tee /opt/codex/setup-runner.log"
+# Runs on push to any build/** branch using a self-hosted runner on 192.168.1.229.
+# sccache-dist: scheduler 192.168.1.220:10500, Redis 192.168.1.230.
+# Build dir: /opt/codex/firefox/dev (symlink: /opt/firefox/dev)
 
 on:
   push:
@@ -21,15 +17,15 @@ jobs:
     timeout-minutes: 180
 
     env:
-      BUILD_DIR: /opt/firefox/build
-      ARTIFACT_DIR: /opt/firefox/artifacts/${{ github.run_id }}
+      BUILD_DIR: /opt/codex/firefox/dev
+      ARTIFACT_DIR: /opt/codex/firefox/artifacts/${{ github.run_id }}
       RUSTC_WRAPPER: sccache
       CC: sccache clang
       CXX: sccache clang++
       SCCACHE_LOG: warn
 
     steps:
-      - name: Fetch and checkout patch branch
+      - name: Fetch and checkout build branch
         run: |
           cd "$BUILD_DIR"
           git config remote.wiki-mod.promisor true
