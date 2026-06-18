@@ -47,12 +47,32 @@ jobs:
           grep -q 'cfg!(target_os = "macos")' "$BUILD_DIR/third_party/rust/cc/src/lib.rs" \
             && echo "cc-rs patch: present" || echo "cc-rs patch: MISSING – source checkout may be stale"
 
-      - name: sccache dist diagnostics
+      - name: Configure sccache-dist (inject token at runtime)
         run: |
-          echo "=== SCCACHE_CONF ===" && echo "${SCCACHE_CONF:-not set}"
+          DIST_TOKEN=$(ssh 192.168.1.220 \
+            "grep -r 'token' /etc/sccache/ /opt/sccache/ /root/.config/sccache/ 2>/dev/null \
+             | grep -v '^#' | grep -oP '(?<=token\s*=\s*\")[^\"]+' | head -1" 2>/dev/null || true)
+          if [ -n "$DIST_TOKEN" ]; then
+            echo "::add-mask::$DIST_TOKEN"
+            cat > "$BUILD_DIR/infra/sccache-win-cross.conf" <<EOF
+          [cache.redis]
+          url = "redis://192.168.1.230"
+
+          [dist]
+          scheduler_url = "http://192.168.1.220:10500"
+
+          [dist.auth]
+          type = "token"
+          token = "$DIST_TOKEN"
+          EOF
+            echo "sccache-dist: token injected, dist enabled"
+          else
+            echo "sccache-dist: token not found on 220, dist disabled (Redis only)"
+          fi
           echo "=== sccache --show-stats ===" && /opt/codex/.cargo/bin/sccache --show-stats 2>&1 || true
-          echo "=== scheduler reachable? ===" && curl -sf http://192.168.1.220:10500/api/v1/scheduler/alloc_job 2>&1 | head -5 || curl -sv http://192.168.1.220:10500/ 2>&1 | head -20 || echo "scheduler not reachable"
           echo "=== sccache dist status ===" && /opt/codex/.cargo/bin/sccache --dist-status 2>&1 || true
+          echo "=== scheduler client_auth config ===" && ssh 192.168.1.220 "grep -r 'token\|client_auth\|auth' /etc/sccache/ /opt/sccache/ ~/.config/sccache/ 2>/dev/null | grep -v Binary" 2>&1 || true
+          echo "=== local sccache configs ===" && find /etc/sccache /opt/sccache /root/.config/sccache /home/*/.config/sccache -name '*.conf' -o -name '*.toml' 2>/dev/null | xargs grep -l 'token\|auth' 2>/dev/null | xargs cat 2>/dev/null || true
 
       - name: sccache stats (before)
         run: /opt/codex/.cargo/bin/sccache --show-stats 2>/dev/null || true
