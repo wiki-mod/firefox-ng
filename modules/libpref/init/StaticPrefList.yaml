@@ -2084,6 +2084,14 @@
   value: true
   mirror: always
 
+# When true, frames with >= 100 uniform siblings and no explicit
+# content-visibility are treated as content-visibility:auto (Patch 6).
+# Default off pending performance measurement.
+- name: layout.auto_virtualization.enabled
+  type: bool
+  value: false
+  mirror: always
+
 # Whether we should draw the tabs on top of the titlebar.
 #
 # no (0), yes (1), or default (2), which is true everywhere except Linux.
