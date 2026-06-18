@@ -1,0 +1,66 @@
+name: Win Cross Build CI
+
+# Cross-compiles Firefox for Windows x86_64 from Linux on 192.168.1.229.
+# Toolchain: Mozilla clang-cl + xwin sysroot at /opt/win-toolchain
+# mozconfig: /opt/codex/firefox/mozconfig.win-cross
+# Obj dir:   /opt/codex/firefox/builds/win-cross-obj
+
+on:
+  push:
+    branches:
+      - 'build/win-*'
+  workflow_dispatch:
+
+jobs:
+  win-cross:
+    name: Win Cross (${{ github.ref_name }})
+    runs-on: [self-hosted, linux, firefox-build]
+    timeout-minutes: 240
+
+    env:
+      BUILD_DIR: /opt/codex/firefox/dev
+      MOZCONFIG: /opt/codex/firefox/mozconfig.win-cross
+      ARTIFACT_DIR: /opt/codex/firefox/artifacts/win/${{ github.run_id }}
+      RUSTC_WRAPPER: /opt/codex/.cargo/bin/sccache
+
+    steps:
+      - name: Fetch and checkout build branch
+        run: |
+          cd "$BUILD_DIR"
+          git config remote.wiki-mod.promisor true
+          git fetch --filter=blob:none wiki-mod "$GITHUB_REF_NAME"
+          git checkout FETCH_HEAD
+          git log --oneline -3
+
+      - name: Sync source to sccache-dist worker (240)
+        run: |
+          rsync -a --delete --exclude='.git' "$BUILD_DIR/" codex@192.168.1.240:"$BUILD_DIR/"
+
+      - name: Symlink mozconfig
+        run: ln -sf /opt/codex/firefox/mozconfig.win-cross "$BUILD_DIR/.mozconfig"
+
+      - name: sccache stats (before)
+        run: /opt/codex/.cargo/bin/sccache --show-stats 2>/dev/null || true
+
+      - name: Build Firefox (Windows cross)
+        run: |
+          mkdir -p "$ARTIFACT_DIR"
+          cd "$BUILD_DIR"
+          ./mach build 2>&1 | tee "$ARTIFACT_DIR/build.log"
+          echo "BUILD_STATUS=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
+
+      - name: sccache stats (after)
+        if: always()
+        run: /opt/codex/.cargo/bin/sccache --show-stats 2>/dev/null || true
+
+      - name: Upload build log
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: win-cross-${{ github.sha }}
+          path: ${{ env.ARTIFACT_DIR }}/build.log
+          retention-days: 14
+
+      - name: Fail if build failed
+        if: env.BUILD_STATUS != '0'
+        run: exit 1
