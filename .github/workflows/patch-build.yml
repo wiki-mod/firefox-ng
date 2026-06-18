@@ -32,6 +32,10 @@ jobs:
           git checkout FETCH_HEAD
           git log --oneline -3
 
+      - name: Sync source to sccache-dist worker (240)
+        run: |
+          rsync -a --delete --exclude='.git' "$BUILD_DIR/" codex@192.168.1.240:"$BUILD_DIR/"
+
       - name: sccache stats (before)
         run: sccache --show-stats 2>/dev/null || true
 
