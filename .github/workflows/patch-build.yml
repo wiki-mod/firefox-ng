@@ -34,11 +34,11 @@ jobs:
       - name: sccache stats (before)
         run: sccache --show-stats 2>/dev/null || true
 
-      - name: Build Firefox (binaries)
+      - name: Build Firefox
         run: |
           mkdir -p "$ARTIFACT_DIR"
           cd "$BUILD_DIR"
-          ./mach build binaries 2>&1 | tee "$ARTIFACT_DIR/build.log"
+          ./mach build 2>&1 | tee "$ARTIFACT_DIR/build.log"
           echo "BUILD_STATUS=${PIPESTATUS[0]}" >> "$GITHUB_ENV"
 
       - name: sccache stats (after)
