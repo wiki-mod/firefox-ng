@@ -62,12 +62,21 @@ jobs:
         if: always()
         run: /opt/codex/.cargo/bin/sccache --show-stats 2>/dev/null || true
 
-      - name: Upload build log
+      - name: Package Firefox (Windows)
+        if: env.BUILD_STATUS == '0'
+        run: |
+          cd "$BUILD_DIR"
+          ./mach package 2>&1 | tee -a "$ARTIFACT_DIR/build.log"
+          find /opt/codex/firefox/builds/win-cross-obj/dist/ -maxdepth 1 \
+            \( -name 'firefox-*.win64.zip' -o -name 'firefox-*.win64.installer.exe' \) \
+            -exec cp {} "$ARTIFACT_DIR/" \;
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: win-cross-${{ github.sha }}
-          path: ${{ env.ARTIFACT_DIR }}/build.log
+          path: ${{ env.ARTIFACT_DIR }}/
           retention-days: 14
 
       - name: Fail if build failed
