@@ -1,0 +1,23 @@
+mk_add_options MOZ_OBJDIR=/opt/codex/firefox/builds/win-cross-obj
+
+ac_add_options --target=x86_64-pc-windows-msvc
+ac_add_options --enable-bootstrap
+
+export WINSYSROOT=/opt/win-toolchain
+
+ac_add_options --disable-debug
+ac_add_options --enable-release
+ac_add_options --enable-optimize
+ac_add_options --disable-crashreporter
+ac_add_options --disable-accessibility
+
+ac_add_options --with-ccache=/opt/codex/.cargo/bin/sccache
+mk_add_options "export RUSTC_WRAPPER=/opt/codex/.cargo/bin/sccache"
+mk_add_options "export SCCACHE_REDIS=redis://192.168.1.230:6379"
+mk_add_options "export SCCACHE_CACHE_SIZE=50G"
+mk_add_options AUTOCLOBBER=1
+
+export CC_x86_64_pc_windows_msvc=/opt/codex/.mozbuild/clang/bin/clang-cl
+export CXX_x86_64_pc_windows_msvc=/opt/codex/.mozbuild/clang/bin/clang-cl
+export ML=/opt/codex/.mozbuild/clang/bin/llvm-ml64
+export ML64=/opt/codex/.mozbuild/clang/bin/llvm-ml64

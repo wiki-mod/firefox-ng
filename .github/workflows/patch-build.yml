@@ -20,8 +20,9 @@ jobs:
     env:
       BUILD_DIR: /opt/codex/firefox/dev
       ARTIFACT_DIR: /opt/codex/firefox/artifacts/${{ github.run_id }}
-      RUSTC_WRAPPER: sccache
-      SCCACHE_CONF: /opt/codex/firefox/sccache-nodist.conf
+      RUSTC_WRAPPER: /opt/codex/.cargo/bin/sccache
+      MOZCONFIG: /opt/codex/firefox/dev/infra/mozconfig.dev
+      SCCACHE_CONF: /opt/codex/firefox/dev/infra/sccache-nodist.conf
 
     steps:
       - name: Fetch and checkout build branch
