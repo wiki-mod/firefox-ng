@@ -1,7 +1,6 @@
 name: Patch Build CI
 
-# Runs on push to any build/** branch using a self-hosted runner on 192.168.1.229.
-# sccache-dist: scheduler 192.168.1.220:10500, Redis 192.168.1.230.
+# Runs on push to any build/** branch using a self-hosted runner (firefox-build label).
 # Build dir: /opt/codex/firefox/dev  Obj dir: /opt/codex/firefox/builds/dev-obj
 # mozconfig: /opt/codex/firefox/mozconfig.dev (symlinked as dev/.mozconfig)
 
@@ -34,7 +33,7 @@ jobs:
 
       - name: Sync source to sccache-dist worker (240)
         run: |
-          rsync -a --delete --exclude='.git' "$BUILD_DIR/" codex@192.168.1.240:"$BUILD_DIR/"
+          rsync -a --delete --exclude='.git' "$BUILD_DIR/" "${{ secrets.SCCACHE_WORKER }}:$BUILD_DIR/"
 
       - name: sccache stats (before)
         run: sccache --show-stats 2>/dev/null || true

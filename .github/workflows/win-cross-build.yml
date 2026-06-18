@@ -1,6 +1,6 @@
 name: Win Cross Build CI
 
-# Cross-compiles Firefox for Windows x86_64 from Linux on 192.168.1.229.
+# Cross-compiles Firefox for Windows x86_64 from Linux (firefox-build runner).
 # Toolchain: Mozilla clang-cl + xwin sysroot at /opt/win-toolchain
 # mozconfig: /opt/codex/firefox/mozconfig.win-cross
 # Obj dir:   /opt/codex/firefox/builds/win-cross-obj
@@ -34,7 +34,7 @@ jobs:
 
       - name: Sync source to sccache-dist worker (240)
         run: |
-          rsync -a --delete --exclude='.git' "$BUILD_DIR/" codex@192.168.1.240:"$BUILD_DIR/"
+          rsync -a --delete --exclude='.git' "$BUILD_DIR/" "${{ secrets.SCCACHE_WORKER }}:$BUILD_DIR/"
 
       - name: Symlink mozconfig
         run: ln -sf /opt/codex/firefox/mozconfig.win-cross "$BUILD_DIR/.mozconfig"
