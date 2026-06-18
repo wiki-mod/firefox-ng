@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - 'build/**'
+      - '!build/win-**'
   workflow_dispatch:
 
 jobs:

@@ -8,7 +8,7 @@ name: Win Cross Build CI
 on:
   push:
     branches:
-      - 'build/win-*'
+      - 'build/win-**'
   workflow_dispatch:
 
 jobs:
