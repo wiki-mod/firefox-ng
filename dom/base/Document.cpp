@@ -91,7 +91,6 @@
 #include "mozilla/PermissionManager.h"
 #include "mozilla/Preferences.h"
 #include "mozilla/ProcessIdleHints.h"
-#include "mozilla/StaticPrefs_browser.h"
 #include "mozilla/PreloadHashKey.h"
 #include "mozilla/PresShell.h"
 #include "mozilla/PresShellForwards.h"
