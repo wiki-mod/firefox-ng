@@ -6,9 +6,6 @@ name: Win Cross Build CI
 # Obj dir:   /opt/codex/firefox/builds/win-cross-obj
 
 on:
-  push:
-    branches:
-      - 'build/win-**'
   workflow_dispatch:
 
 jobs:

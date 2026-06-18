@@ -5,10 +5,6 @@ name: Patch Build CI
 # mozconfig: /opt/codex/firefox/mozconfig.dev (symlinked as dev/.mozconfig)
 
 on:
-  push:
-    branches:
-      - 'build/**'
-      - '!build/win-**'
   workflow_dispatch:
 
 jobs:
