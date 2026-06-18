@@ -47,6 +47,13 @@ jobs:
           grep -q 'cfg!(target_os = "macos")' "$BUILD_DIR/third_party/rust/cc/src/lib.rs" \
             && echo "cc-rs patch: present" || echo "cc-rs patch: MISSING – source checkout may be stale"
 
+      - name: sccache dist diagnostics
+        run: |
+          echo "=== SCCACHE_CONF ===" && echo "${SCCACHE_CONF:-not set}"
+          echo "=== sccache --show-stats ===" && /opt/codex/.cargo/bin/sccache --show-stats 2>&1 || true
+          echo "=== scheduler reachable? ===" && curl -sf http://192.168.1.220:10500/api/v1/scheduler/alloc_job 2>&1 | head -5 || curl -sv http://192.168.1.220:10500/ 2>&1 | head -20 || echo "scheduler not reachable"
+          echo "=== sccache dist status ===" && /opt/codex/.cargo/bin/sccache --dist-status 2>&1 || true
+
       - name: sccache stats (before)
         run: /opt/codex/.cargo/bin/sccache --show-stats 2>/dev/null || true
 
