@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: build-${{ github.ref_name }}-${{ github.sha }}
+          name: build-${{ github.sha }}
           path: ${{ env.ARTIFACT_DIR }}/build.log
           retention-days: 14
 
